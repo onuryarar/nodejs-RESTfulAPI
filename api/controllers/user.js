@@ -21,7 +21,9 @@ exports.register = (req, res, next) => {
                         const user = new User({
                             _id: new mongoose.Types.ObjectId(),
                             email: req.body.email,
-                            password: hash
+                            password: hash,
+                            fname: req.body.fname,
+                            lname: req.body.lname
                         });
                         user.save()
                             .then(result => {
@@ -36,6 +38,83 @@ exports.register = (req, res, next) => {
                     }
                 });
             }
+        });
+}
+
+exports.get_all = (req, res, next) => {
+    User.find()
+        .select('-__v -password')
+        .exec()
+        .then(results => {
+            const user = {
+                count: results.length,
+                user: results.map(result => {
+                    return {
+                        ...result._doc
+                    }
+                }),
+            }
+            res.status(200).json(user);
+        })
+        .catch(err => {
+            console.log(err);
+            res.status(500).json({ error: err });
+        });
+}
+
+exports.get_single = (req, res, next) => {
+    User.findOne({ _id: req.params.userId })
+        .select('-__v -password')
+        .exec()
+        .then(result => {
+            if (result)
+                res.status(200).json({
+                    ...result._doc
+                });
+            else
+                res.status(404).json({
+                    message: "Kullanıcı bulunamadı."
+                })
+        })
+        .catch(err => {
+            console.log(err);
+            res.status(500).json({ error: err });
+        });
+}
+
+exports.update = (req, res, next) => {
+    const id = req.params.userId;
+    if (id !== req.user.userId) {   /** kişi sadece kendisini düzenleyebilir */
+        return res.status(403).json({
+            message: 'No Permission'
+        });
+    }
+
+    User.update({ _id: id }, { $set: req.body })
+        .exec()
+        .then(result => {
+            res.status(200).json({
+                message: 'Kullanıcı güncellendi'
+            });
+        })
+        .catch(err => {
+            console.log(err);
+            res.status(500).json({
+                error: err
+            });
+        });
+}
+
+exports.delete = (req, res, next) => {
+    User.remove({ _id: req.params.userId }).exec()
+        .then(result => {
+            console.log(result);
+            res.status(200).json({
+                message: 'Kullanıcı silindi.'
+            });
+        })
+        .catch(err => {
+            res.status(500).json({ error: err });
         });
 }
 
@@ -63,19 +142,6 @@ exports.login = (req, res, next) => {
                 res.status(401).json({
                     message: 'Unauthorized'
                 })
-            });
-        })
-        .catch(err => {
-            res.status(500).json({ error: err });
-        });
-}
-
-exports.delete = (req, res, next) => {
-    User.remove({ _id: req.params.userId }).exec()
-        .then(result => {
-            console.log(result);
-            res.status(200).json({
-                message: 'Kullanıcı silindi.'
             });
         })
         .catch(err => {
